@@ -36,3 +36,8 @@ BenchmarkAESCTR1K-4       	 1000000	      1281 ns/op	 795.08 MB/s
 PASS
 ok  	crypto/cipher	4.404s
 ```
+
+## Reference
+
+* [Intel Intrinsics Guide](https://software.intel.com/sites/landingpage/IntrinsicsGuide/)
+* [X86 Registers](https://en.wikibooks.org/wiki/X86_Assembly/16_32_and_64_Bits) and their [oddities in Go](https://quasilyte.github.io/blog/post/go-asm-complementary-reference/#register-names)
