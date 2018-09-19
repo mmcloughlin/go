@@ -18,6 +18,8 @@ import (
 // 4. use CTR_LO and CTR_HI #defines
 // 5. load/restore of counters can be done once for the whole function, not just in Encrypt()
 // 6. unify use of jmp instructions? JB vs JLT
+// 7. handling of last sub-block is inelegant
+// 8. distinguish between tmp general purpose and tmp X register (T0, T1, TX)
 
 type AES struct {
 	w io.Writer
@@ -34,17 +36,17 @@ func NewAES(w io.Writer) *AES {
 func (a *AES) Generate() error {
 	a.header()
 	a.data64("bswap", []uint64{0x08090a0b0c0d0e0f, 0x0001020304050607})
-	a.text("xorKeyStream", 0, 0)
+	a.text("xorKeyStream", a.n*16, 10*8+8)
 
-	// func xorKeyStream(nr int, xk *uint32, buf *byte, n int, ctr, dst *byte, src []byte) int
+	// func xorKeyStream(nr int, xk *uint32, buf []byte, ctr, dst *byte, src []byte) int
 	a.arg("nr", 0, "R8")
 	a.arg("xk", 8, "AX")
-	a.arg("buf", 16, "BX")
-	a.arg("n", 24, "R9")
-	a.arg("ctr", 32, "CX")
-	a.arg("dst", 40, "DI")
-	a.arg("src_base", 40, "SI")
-	a.arg("src_len", 48, "R10")
+	a.arg("buf_ptr", 16, "BX")
+	a.arg("buf_len", 24, "R9")
+	a.arg("ctr", 40, "CX")
+	a.arg("dst", 48, "DI")
+	a.arg("src_ptr", 56, "SI")
+	a.arg("src_len", 64, "R10")
 
 	a.section("Working register setup.")
 	t0 := a.alloc("T0", "R11")
@@ -59,6 +61,8 @@ func (a *AES) Generate() error {
 	a.alloc("BSWAP", "X"+strconv.Itoa(a.n+1))
 	a.inst("MOVOU", "bswap<>(SB), BSWAP")
 
+	a.alloc("TX", "X"+strconv.Itoa(a.n+2))
+
 	// for len(src) > 0"
 	a.label("loop")
 	a.inst("CMPQ", "SRC_LEN, $0")
@@ -66,40 +70,57 @@ func (a *AES) Generate() error {
 
 	// if n > 0
 	a.label("xor")
-	a.inst("CMPQ", "N, $0")
+	a.inst("CMPQ", "BUF_LEN, $0")
 	a.inst("JE", "enc8")
 
-	a.inst("MOVB", "(SRC_BASE), %s", t0)
-	a.inst("MOVB", "(BUF), %s", t1)
+	a.inst("MOVB", "(SRC_PTR), %s", t0)
+	a.inst("MOVB", "(BUF_PTR), %s", t1)
 	a.inst("XORL", "%s, %s", t0, t1)
 	a.inst("MOVB", "%s, (DST)", t1)
-	a.inst("INCQ", "SRC_BASE")
+	a.inst("INCQ", "SRC_PTR")
 	a.inst("DECQ", "SRC_LEN")
-	a.inst("INCQ", "BUF")
-	a.inst("DECQ", "N")
+	a.inst("INCQ", "BUF_PTR")
+	a.inst("DECQ", "BUF_LEN")
+	a.inst("INCQ", "DST")
 	a.inst("JMP", "loop")
 
 	// encrypt successively fewer blocks at a time
-	for n := a.n; n > 1; n /= 2 {
-		a.label("enc" + strconv.Itoa(n))
+	for n := a.n; n > 0; n /= 2 {
+		name := "enc" + strconv.Itoa(n)
+		a.label(name)
 		a.inst("CMPQ", "SRC_LEN, $%d", n*16)
-		a.inst("JL", "enc"+strconv.Itoa(n/2))
-		a.Encrypt(n)
-		a.inst("JMP", "enc"+strconv.Itoa(n))
+		a.inst("JB", "enc"+strconv.Itoa(n/2))
+		a.Encrypt(n, name)
+		a.Xor(n)
+		a.inst("JMP", name)
 	}
+
+	a.section("Less than a full block remains.")
+	a.label("enc0")
+	a.inst("CMPQ", "SRC_LEN, $0")
+	a.inst("JE", "done")
+
+	a.Encrypt(1, "enc0")
+
+	a.inst("SUBQ", "$16, BUF_PTR")
+	a.inst("MOVOU", "B0, (BUF_PTR)")
+	a.inst("MOVQ", "$16, BUF_LEN")
+	a.inst("JMP", "loop")
 
 	// Exit
 	a.label("done")
+	a.inst("MOVQ", "BUF_LEN, ret+80(FP)")
 	a.inst("RET", "")
 
 	return nil
 }
 
-func (a *AES) Encrypt(n int) {
+// Encrypt encrypts n counter blocks.
+func (a *AES) Encrypt(n int, name string) {
 	a.section("Load counter values.")
 	for i := 0; i < 2; i++ {
 		a.inst("MOVQ", "%d(CTR), T%d", 8*i, i)
-		a.inst("BSWAP", "T%d", i)
+		a.inst("BSWAPQ", "T%d", i)
 	}
 
 	a.section("Increment counter and populate block registers.")
@@ -114,7 +135,7 @@ func (a *AES) Encrypt(n int) {
 
 	a.section("Restore counter values.")
 	for i := 0; i < 2; i++ {
-		a.inst("BSWAP", "T%d", i)
+		a.inst("BSWAPQ", "T%d", i)
 		a.inst("MOVQ", "T%d, %d(CTR)", i, 8*i)
 	}
 
@@ -135,7 +156,7 @@ func (a *AES) Encrypt(n int) {
 
 	a.section("2 more rounds (196- and 256-bit)")
 	a.inst("CMPQ", "NR, $12")
-	last := "lastround" + strconv.Itoa(n)
+	last := "last" + name
 	a.inst("JB", last)
 
 	for r := 10; r < 12; r++ {
@@ -159,16 +180,19 @@ func (a *AES) Encrypt(n int) {
 	for i := 0; i < n; i++ {
 		a.inst("AESENCLAST", "KEY, B%d", i)
 	}
+}
 
+// Xor xors n blocks into src and writes to dst.
+func (a *AES) Xor(n int) {
 	a.section("XOR with src.")
 	for i := 0; i < n; i++ {
-		a.inst("MOVOU", "%d(SRC_BASE), T0", 16*i)
-		a.inst("PXOR", "T0, B%d", i)
+		a.inst("MOVOU", "%d(SRC_PTR), TX", 16*i)
+		a.inst("PXOR", "TX, B%d", i)
 		a.inst("MOVOU", "B%d, %d(DST)", i, 16*i)
 	}
 
-	a.inst("ADDQ", "$%d, SRC_BASE", 16*n)
-	a.inst("SUBQ", "$%d, SRC_BASE", 16*n)
+	a.inst("ADDQ", "$%d, SRC_PTR", 16*n)
+	a.inst("SUBQ", "$%d, SRC_LEN", 16*n)
 	a.inst("ADDQ", "$%d, DST", 16*n)
 }
 

@@ -12,26 +12,16 @@ import (
 // Assert that aesCipherAsm implements the ctrAble interface.
 var _ ctrAble = (*aesCipherAsm)(nil)
 
-// encryptBlocks8Ctr encrypts 8 counter blocks.
+// xorKeyStream encrypts/decrypts src into dst. Returns the number of bytes of the buffer that remain.
 //go:noescape
-func encryptBlocks8Ctr(nr int, xk *uint32, dst, ctr *byte)
-
-// xorBytes xors the contents of a and b and places the resulting values into
-// dst. If a and b are not the same length then the number of bytes processed
-// will be equal to the length of shorter of the two. Returns the number
-// of bytes processed.
-//go:noescape
-func xorBytes(dst, a, b []byte) int
-
-// streamBufferSize is the number of bytes of encrypted counter values to cache.
-const streamBufferSize = 32 * BlockSize
+func xorKeyStream(nr int, xk *uint32, buf []byte, ctr, dst *byte, src []byte) int
 
 type aesctr struct {
-	block   *aesCipherAsm          // block cipher
-	nr      int                    // number of rounds
-	ctr     [BlockSize]byte        // next value of the counter (big endian)
-	buffer  []byte                 // buffer for the encrypted counter values
-	storage [streamBufferSize]byte // array backing buffer slice
+	block   *aesCipherAsm   // block cipher
+	nr      int             // number of rounds
+	ctr     [BlockSize]byte // next value of the counter (big endian)
+	buf     []byte          // buffer of remaining key stream
+	storage [BlockSize]byte // storage for leftover key stream
 }
 
 // NewCTR returns a Stream which encrypts/decrypts using the AES block
@@ -44,15 +34,8 @@ func (c *aesCipherAsm) NewCTR(iv []byte) cipher.Stream {
 	ac.block = c
 	ac.nr = len(c.enc)/4 - 1
 	copy(ac.ctr[:], iv)
-	ac.buffer = ac.storage[:0]
+	ac.buf = ac.storage[BlockSize:]
 	return &ac
-}
-
-func (c *aesctr) refill() {
-	c.buffer = c.storage[:streamBufferSize]
-	for n := 0; n < streamBufferSize; n += 8 * BlockSize {
-		encryptBlocks8Ctr(c.nr, &c.block.enc[0], &c.buffer[n], &c.ctr[0])
-	}
 }
 
 func (c *aesctr) XORKeyStream(dst, src []byte) {
@@ -62,13 +45,6 @@ func (c *aesctr) XORKeyStream(dst, src []byte) {
 	if subtle.InexactOverlap(dst[:len(src)], src) {
 		panic("crypto/cipher: invalid buffer overlap")
 	}
-	for len(src) > 0 {
-		if len(c.buffer) == 0 {
-			c.refill()
-		}
-		n := xorBytes(dst, src, c.buffer)
-		c.buffer = c.buffer[n:]
-		src = src[n:]
-		dst = dst[n:]
-	}
+	n := xorKeyStream(c.nr, &c.block.enc[0], c.buf, &c.ctr[0], &dst[0], src)
+	c.buf = c.storage[BlockSize-n:]
 }

@@ -1,223 +1,702 @@
 #include "textflag.h"
 
-DATA bswapMask<>+0x00(SB)/8, $0x08090a0b0c0d0e0f
-DATA bswapMask<>+0x08(SB)/8, $0x0001020304050607
-GLOBL bswapMask<>(SB), (NOPTR+RODATA), $16
+DATA bswap<>+0x00(SB)/8, $0x08090a0b0c0d0e0f
+DATA bswap<>+0x08(SB)/8, $0x0001020304050607
+GLOBL bswap<>(SB), (NOPTR+RODATA), $16
 
-// func encryptBlocks8Ctr(nr int, xk *uint32, dst, ctr *byte)
-TEXT ·encryptBlocks8Ctr(SB),0,$128-32
-	MOVQ nr+0(FP), CX
-	MOVQ xk+8(FP), AX
-	MOVQ dst+16(FP), DX
-	MOVQ ctr+24(FP), BX
-	MOVQ 0(BX), R8
-	MOVQ 8(BX), R9
-	BSWAPQ R8
-	BSWAPQ R9
-	MOVOU bswapMask<>(SB), X9
-	MOVQ R9, 0(SP)
-	MOVQ R8, 8(SP)
-	MOVOU 0(SP), X0
-	PSHUFB X9, X0
-	ADDQ $1, R9
-	ADCQ $0, R8
-	MOVQ R9, 16(SP)
-	MOVQ R8, 24(SP)
-	MOVOU 16(SP), X1
-	PSHUFB X9, X1
-	ADDQ $1, R9
-	ADCQ $0, R8
-	MOVQ R9, 32(SP)
-	MOVQ R8, 40(SP)
-	MOVOU 32(SP), X2
-	PSHUFB X9, X2
-	ADDQ $1, R9
-	ADCQ $0, R8
-	MOVQ R9, 48(SP)
-	MOVQ R8, 56(SP)
-	MOVOU 48(SP), X3
-	PSHUFB X9, X3
-	ADDQ $1, R9
-	ADCQ $0, R8
-	MOVQ R9, 64(SP)
-	MOVQ R8, 72(SP)
-	MOVOU 64(SP), X4
-	PSHUFB X9, X4
-	ADDQ $1, R9
-	ADCQ $0, R8
-	MOVQ R9, 80(SP)
-	MOVQ R8, 88(SP)
-	MOVOU 80(SP), X5
-	PSHUFB X9, X5
-	ADDQ $1, R9
-	ADCQ $0, R8
-	MOVQ R9, 96(SP)
-	MOVQ R8, 104(SP)
-	MOVOU 96(SP), X6
-	PSHUFB X9, X6
-	ADDQ $1, R9
-	ADCQ $0, R8
-	MOVQ R9, 112(SP)
-	MOVQ R8, 120(SP)
-	MOVOU 112(SP), X7
-	PSHUFB X9, X7
-	ADDQ $1, R9
-	ADCQ $0, R8
-	BSWAPQ R8
-	BSWAPQ R9
-	MOVQ R8, 0(BX)
-	MOVQ R9, 8(BX)
-	MOVUPS 0(AX), X8
-	PXOR X8, X0
-	PXOR X8, X1
-	PXOR X8, X2
-	PXOR X8, X3
-	PXOR X8, X4
-	PXOR X8, X5
-	PXOR X8, X6
-	PXOR X8, X7
-	ADDQ $16, AX
-	SUBQ $12, CX
-	JE Lenc192
-	JB Lenc128
-Lenc256:
-	MOVUPS 0(AX), X8
-	AESENC X8, X0
-	AESENC X8, X1
-	AESENC X8, X2
-	AESENC X8, X3
-	AESENC X8, X4
-	AESENC X8, X5
-	AESENC X8, X6
-	AESENC X8, X7
-	MOVUPS 16(AX), X8
-	AESENC X8, X0
-	AESENC X8, X1
-	AESENC X8, X2
-	AESENC X8, X3
-	AESENC X8, X4
-	AESENC X8, X5
-	AESENC X8, X6
-	AESENC X8, X7
-	ADDQ $32, AX
-Lenc192:
-	MOVUPS 0(AX), X8
-	AESENC X8, X0
-	AESENC X8, X1
-	AESENC X8, X2
-	AESENC X8, X3
-	AESENC X8, X4
-	AESENC X8, X5
-	AESENC X8, X6
-	AESENC X8, X7
-	MOVUPS 16(AX), X8
-	AESENC X8, X0
-	AESENC X8, X1
-	AESENC X8, X2
-	AESENC X8, X3
-	AESENC X8, X4
-	AESENC X8, X5
-	AESENC X8, X6
-	AESENC X8, X7
-	ADDQ $32, AX
-Lenc128:
-	MOVUPS 0(AX), X8
-	AESENC X8, X0
-	AESENC X8, X1
-	AESENC X8, X2
-	AESENC X8, X3
-	AESENC X8, X4
-	AESENC X8, X5
-	AESENC X8, X6
-	AESENC X8, X7
-	MOVUPS 16(AX), X8
-	AESENC X8, X0
-	AESENC X8, X1
-	AESENC X8, X2
-	AESENC X8, X3
-	AESENC X8, X4
-	AESENC X8, X5
-	AESENC X8, X6
-	AESENC X8, X7
-	MOVUPS 32(AX), X8
-	AESENC X8, X0
-	AESENC X8, X1
-	AESENC X8, X2
-	AESENC X8, X3
-	AESENC X8, X4
-	AESENC X8, X5
-	AESENC X8, X6
-	AESENC X8, X7
-	MOVUPS 48(AX), X8
-	AESENC X8, X0
-	AESENC X8, X1
-	AESENC X8, X2
-	AESENC X8, X3
-	AESENC X8, X4
-	AESENC X8, X5
-	AESENC X8, X6
-	AESENC X8, X7
-	MOVUPS 64(AX), X8
-	AESENC X8, X0
-	AESENC X8, X1
-	AESENC X8, X2
-	AESENC X8, X3
-	AESENC X8, X4
-	AESENC X8, X5
-	AESENC X8, X6
-	AESENC X8, X7
-	MOVUPS 80(AX), X8
-	AESENC X8, X0
-	AESENC X8, X1
-	AESENC X8, X2
-	AESENC X8, X3
-	AESENC X8, X4
-	AESENC X8, X5
-	AESENC X8, X6
-	AESENC X8, X7
-	MOVUPS 96(AX), X8
-	AESENC X8, X0
-	AESENC X8, X1
-	AESENC X8, X2
-	AESENC X8, X3
-	AESENC X8, X4
-	AESENC X8, X5
-	AESENC X8, X6
-	AESENC X8, X7
-	MOVUPS 112(AX), X8
-	AESENC X8, X0
-	AESENC X8, X1
-	AESENC X8, X2
-	AESENC X8, X3
-	AESENC X8, X4
-	AESENC X8, X5
-	AESENC X8, X6
-	AESENC X8, X7
-	MOVUPS 128(AX), X8
-	AESENC X8, X0
-	AESENC X8, X1
-	AESENC X8, X2
-	AESENC X8, X3
-	AESENC X8, X4
-	AESENC X8, X5
-	AESENC X8, X6
-	AESENC X8, X7
-	MOVUPS 144(AX), X8
-	AESENCLAST X8, X0
-	AESENCLAST X8, X1
-	AESENCLAST X8, X2
-	AESENCLAST X8, X3
-	AESENCLAST X8, X4
-	AESENCLAST X8, X5
-	AESENCLAST X8, X6
-	AESENCLAST X8, X7
-	MOVUPS X0, 0(DX)
-	MOVUPS X1, 16(DX)
-	MOVUPS X2, 32(DX)
-	MOVUPS X3, 48(DX)
-	MOVUPS X4, 64(DX)
-	MOVUPS X5, 80(DX)
-	MOVUPS X6, 96(DX)
-	MOVUPS X7, 112(DX)
-	RET
+TEXT ·xorKeyStream(SB),0,$128-88
+#define NR R8
+	MOVQ     nr+0(FP), NR
+#define XK AX
+	MOVQ     xk+8(FP), XK
+#define BUF_PTR BX
+	MOVQ     buf_ptr+16(FP), BUF_PTR
+#define BUF_LEN R9
+	MOVQ     buf_len+24(FP), BUF_LEN
+#define CTR CX
+	MOVQ     ctr+40(FP), CTR
+#define DST DI
+	MOVQ     dst+48(FP), DST
+#define SRC_PTR SI
+	MOVQ     src_ptr+56(FP), SRC_PTR
+#define SRC_LEN R10
+	MOVQ     src_len+64(FP), SRC_LEN
 
+// Working register setup.
+#define T0 R11
+#define T1 R12
+#define B0 X0
+#define B1 X1
+#define B2 X2
+#define B3 X3
+#define B4 X4
+#define B5 X5
+#define B6 X6
+#define B7 X7
+#define KEY X8
+#define BSWAP X9
+	MOVOU    bswap<>(SB), BSWAP
+#define TX X10
+
+loop:
+	CMPQ     SRC_LEN, $0
+	JE       done
+
+xor:
+	CMPQ     BUF_LEN, $0
+	JE       enc8
+	MOVB     (SRC_PTR), T0
+	MOVB     (BUF_PTR), T1
+	XORL     T0, T1
+	MOVB     T1, (DST)
+	INCQ     SRC_PTR
+	DECQ     SRC_LEN
+	INCQ     BUF_PTR
+	DECQ     BUF_LEN
+	INCQ     DST
+	JMP      loop
+
+enc8:
+	CMPQ     SRC_LEN, $128
+	JB       enc4
+
+// Load counter values.
+	MOVQ     0(CTR), T0
+	BSWAPQ   T0
+	MOVQ     8(CTR), T1
+	BSWAPQ   T1
+
+// Increment counter and populate block registers.
+	MOVQ     T1, 0(SP)
+	MOVQ     T0, 8(SP)
+	MOVOU    0(SP), B0
+	PSHUFB   BSWAP, B0
+	ADDQ     $1, T1
+	ADCQ     $0, T0
+	MOVQ     T1, 16(SP)
+	MOVQ     T0, 24(SP)
+	MOVOU    16(SP), B1
+	PSHUFB   BSWAP, B1
+	ADDQ     $1, T1
+	ADCQ     $0, T0
+	MOVQ     T1, 32(SP)
+	MOVQ     T0, 40(SP)
+	MOVOU    32(SP), B2
+	PSHUFB   BSWAP, B2
+	ADDQ     $1, T1
+	ADCQ     $0, T0
+	MOVQ     T1, 48(SP)
+	MOVQ     T0, 56(SP)
+	MOVOU    48(SP), B3
+	PSHUFB   BSWAP, B3
+	ADDQ     $1, T1
+	ADCQ     $0, T0
+	MOVQ     T1, 64(SP)
+	MOVQ     T0, 72(SP)
+	MOVOU    64(SP), B4
+	PSHUFB   BSWAP, B4
+	ADDQ     $1, T1
+	ADCQ     $0, T0
+	MOVQ     T1, 80(SP)
+	MOVQ     T0, 88(SP)
+	MOVOU    80(SP), B5
+	PSHUFB   BSWAP, B5
+	ADDQ     $1, T1
+	ADCQ     $0, T0
+	MOVQ     T1, 96(SP)
+	MOVQ     T0, 104(SP)
+	MOVOU    96(SP), B6
+	PSHUFB   BSWAP, B6
+	ADDQ     $1, T1
+	ADCQ     $0, T0
+	MOVQ     T1, 112(SP)
+	MOVQ     T0, 120(SP)
+	MOVOU    112(SP), B7
+	PSHUFB   BSWAP, B7
+	ADDQ     $1, T1
+	ADCQ     $0, T0
+
+// Restore counter values.
+	BSWAPQ   T0
+	MOVQ     T0, 0(CTR)
+	BSWAPQ   T1
+	MOVQ     T1, 8(CTR)
+
+// Initial key add.
+	MOVOU    0(XK), KEY
+	PXOR     KEY, B0
+	PXOR     KEY, B1
+	PXOR     KEY, B2
+	PXOR     KEY, B3
+	PXOR     KEY, B4
+	PXOR     KEY, B5
+	PXOR     KEY, B6
+	PXOR     KEY, B7
+	MOVOU    16(XK), KEY
+
+// 9 rounds (all key sizes)
+	AESENC   KEY, B0
+	AESENC   KEY, B1
+	AESENC   KEY, B2
+	AESENC   KEY, B3
+	AESENC   KEY, B4
+	AESENC   KEY, B5
+	AESENC   KEY, B6
+	AESENC   KEY, B7
+	MOVOU    32(XK), KEY
+	AESENC   KEY, B0
+	AESENC   KEY, B1
+	AESENC   KEY, B2
+	AESENC   KEY, B3
+	AESENC   KEY, B4
+	AESENC   KEY, B5
+	AESENC   KEY, B6
+	AESENC   KEY, B7
+	MOVOU    48(XK), KEY
+	AESENC   KEY, B0
+	AESENC   KEY, B1
+	AESENC   KEY, B2
+	AESENC   KEY, B3
+	AESENC   KEY, B4
+	AESENC   KEY, B5
+	AESENC   KEY, B6
+	AESENC   KEY, B7
+	MOVOU    64(XK), KEY
+	AESENC   KEY, B0
+	AESENC   KEY, B1
+	AESENC   KEY, B2
+	AESENC   KEY, B3
+	AESENC   KEY, B4
+	AESENC   KEY, B5
+	AESENC   KEY, B6
+	AESENC   KEY, B7
+	MOVOU    80(XK), KEY
+	AESENC   KEY, B0
+	AESENC   KEY, B1
+	AESENC   KEY, B2
+	AESENC   KEY, B3
+	AESENC   KEY, B4
+	AESENC   KEY, B5
+	AESENC   KEY, B6
+	AESENC   KEY, B7
+	MOVOU    96(XK), KEY
+	AESENC   KEY, B0
+	AESENC   KEY, B1
+	AESENC   KEY, B2
+	AESENC   KEY, B3
+	AESENC   KEY, B4
+	AESENC   KEY, B5
+	AESENC   KEY, B6
+	AESENC   KEY, B7
+	MOVOU    112(XK), KEY
+	AESENC   KEY, B0
+	AESENC   KEY, B1
+	AESENC   KEY, B2
+	AESENC   KEY, B3
+	AESENC   KEY, B4
+	AESENC   KEY, B5
+	AESENC   KEY, B6
+	AESENC   KEY, B7
+	MOVOU    128(XK), KEY
+	AESENC   KEY, B0
+	AESENC   KEY, B1
+	AESENC   KEY, B2
+	AESENC   KEY, B3
+	AESENC   KEY, B4
+	AESENC   KEY, B5
+	AESENC   KEY, B6
+	AESENC   KEY, B7
+	MOVOU    144(XK), KEY
+	AESENC   KEY, B0
+	AESENC   KEY, B1
+	AESENC   KEY, B2
+	AESENC   KEY, B3
+	AESENC   KEY, B4
+	AESENC   KEY, B5
+	AESENC   KEY, B6
+	AESENC   KEY, B7
+	MOVOU    160(XK), KEY
+
+// 2 more rounds (196- and 256-bit)
+	CMPQ     NR, $12
+	JB       lastenc8
+	AESENC   KEY, B0
+	AESENC   KEY, B1
+	AESENC   KEY, B2
+	AESENC   KEY, B3
+	AESENC   KEY, B4
+	AESENC   KEY, B5
+	AESENC   KEY, B6
+	AESENC   KEY, B7
+	MOVOU    176(XK), KEY
+	AESENC   KEY, B0
+	AESENC   KEY, B1
+	AESENC   KEY, B2
+	AESENC   KEY, B3
+	AESENC   KEY, B4
+	AESENC   KEY, B5
+	AESENC   KEY, B6
+	AESENC   KEY, B7
+	MOVOU    192(XK), KEY
+
+// 2 more rounds (256-bit only)
+	JE       lastenc8
+	AESENC   KEY, B0
+	AESENC   KEY, B1
+	AESENC   KEY, B2
+	AESENC   KEY, B3
+	AESENC   KEY, B4
+	AESENC   KEY, B5
+	AESENC   KEY, B6
+	AESENC   KEY, B7
+	MOVOU    208(XK), KEY
+	AESENC   KEY, B0
+	AESENC   KEY, B1
+	AESENC   KEY, B2
+	AESENC   KEY, B3
+	AESENC   KEY, B4
+	AESENC   KEY, B5
+	AESENC   KEY, B6
+	AESENC   KEY, B7
+	MOVOU    224(XK), KEY
+
+lastenc8:
+	AESENCLAST KEY, B0
+	AESENCLAST KEY, B1
+	AESENCLAST KEY, B2
+	AESENCLAST KEY, B3
+	AESENCLAST KEY, B4
+	AESENCLAST KEY, B5
+	AESENCLAST KEY, B6
+	AESENCLAST KEY, B7
+
+// XOR with src.
+	MOVOU    0(SRC_PTR), TX
+	PXOR     TX, B0
+	MOVOU    B0, 0(DST)
+	MOVOU    16(SRC_PTR), TX
+	PXOR     TX, B1
+	MOVOU    B1, 16(DST)
+	MOVOU    32(SRC_PTR), TX
+	PXOR     TX, B2
+	MOVOU    B2, 32(DST)
+	MOVOU    48(SRC_PTR), TX
+	PXOR     TX, B3
+	MOVOU    B3, 48(DST)
+	MOVOU    64(SRC_PTR), TX
+	PXOR     TX, B4
+	MOVOU    B4, 64(DST)
+	MOVOU    80(SRC_PTR), TX
+	PXOR     TX, B5
+	MOVOU    B5, 80(DST)
+	MOVOU    96(SRC_PTR), TX
+	PXOR     TX, B6
+	MOVOU    B6, 96(DST)
+	MOVOU    112(SRC_PTR), TX
+	PXOR     TX, B7
+	MOVOU    B7, 112(DST)
+	ADDQ     $128, SRC_PTR
+	SUBQ     $128, SRC_LEN
+	ADDQ     $128, DST
+	JMP      enc8
+
+enc4:
+	CMPQ     SRC_LEN, $64
+	JB       enc2
+
+// Load counter values.
+	MOVQ     0(CTR), T0
+	BSWAPQ   T0
+	MOVQ     8(CTR), T1
+	BSWAPQ   T1
+
+// Increment counter and populate block registers.
+	MOVQ     T1, 0(SP)
+	MOVQ     T0, 8(SP)
+	MOVOU    0(SP), B0
+	PSHUFB   BSWAP, B0
+	ADDQ     $1, T1
+	ADCQ     $0, T0
+	MOVQ     T1, 16(SP)
+	MOVQ     T0, 24(SP)
+	MOVOU    16(SP), B1
+	PSHUFB   BSWAP, B1
+	ADDQ     $1, T1
+	ADCQ     $0, T0
+	MOVQ     T1, 32(SP)
+	MOVQ     T0, 40(SP)
+	MOVOU    32(SP), B2
+	PSHUFB   BSWAP, B2
+	ADDQ     $1, T1
+	ADCQ     $0, T0
+	MOVQ     T1, 48(SP)
+	MOVQ     T0, 56(SP)
+	MOVOU    48(SP), B3
+	PSHUFB   BSWAP, B3
+	ADDQ     $1, T1
+	ADCQ     $0, T0
+
+// Restore counter values.
+	BSWAPQ   T0
+	MOVQ     T0, 0(CTR)
+	BSWAPQ   T1
+	MOVQ     T1, 8(CTR)
+
+// Initial key add.
+	MOVOU    0(XK), KEY
+	PXOR     KEY, B0
+	PXOR     KEY, B1
+	PXOR     KEY, B2
+	PXOR     KEY, B3
+	MOVOU    16(XK), KEY
+
+// 9 rounds (all key sizes)
+	AESENC   KEY, B0
+	AESENC   KEY, B1
+	AESENC   KEY, B2
+	AESENC   KEY, B3
+	MOVOU    32(XK), KEY
+	AESENC   KEY, B0
+	AESENC   KEY, B1
+	AESENC   KEY, B2
+	AESENC   KEY, B3
+	MOVOU    48(XK), KEY
+	AESENC   KEY, B0
+	AESENC   KEY, B1
+	AESENC   KEY, B2
+	AESENC   KEY, B3
+	MOVOU    64(XK), KEY
+	AESENC   KEY, B0
+	AESENC   KEY, B1
+	AESENC   KEY, B2
+	AESENC   KEY, B3
+	MOVOU    80(XK), KEY
+	AESENC   KEY, B0
+	AESENC   KEY, B1
+	AESENC   KEY, B2
+	AESENC   KEY, B3
+	MOVOU    96(XK), KEY
+	AESENC   KEY, B0
+	AESENC   KEY, B1
+	AESENC   KEY, B2
+	AESENC   KEY, B3
+	MOVOU    112(XK), KEY
+	AESENC   KEY, B0
+	AESENC   KEY, B1
+	AESENC   KEY, B2
+	AESENC   KEY, B3
+	MOVOU    128(XK), KEY
+	AESENC   KEY, B0
+	AESENC   KEY, B1
+	AESENC   KEY, B2
+	AESENC   KEY, B3
+	MOVOU    144(XK), KEY
+	AESENC   KEY, B0
+	AESENC   KEY, B1
+	AESENC   KEY, B2
+	AESENC   KEY, B3
+	MOVOU    160(XK), KEY
+
+// 2 more rounds (196- and 256-bit)
+	CMPQ     NR, $12
+	JB       lastenc4
+	AESENC   KEY, B0
+	AESENC   KEY, B1
+	AESENC   KEY, B2
+	AESENC   KEY, B3
+	MOVOU    176(XK), KEY
+	AESENC   KEY, B0
+	AESENC   KEY, B1
+	AESENC   KEY, B2
+	AESENC   KEY, B3
+	MOVOU    192(XK), KEY
+
+// 2 more rounds (256-bit only)
+	JE       lastenc4
+	AESENC   KEY, B0
+	AESENC   KEY, B1
+	AESENC   KEY, B2
+	AESENC   KEY, B3
+	MOVOU    208(XK), KEY
+	AESENC   KEY, B0
+	AESENC   KEY, B1
+	AESENC   KEY, B2
+	AESENC   KEY, B3
+	MOVOU    224(XK), KEY
+
+lastenc4:
+	AESENCLAST KEY, B0
+	AESENCLAST KEY, B1
+	AESENCLAST KEY, B2
+	AESENCLAST KEY, B3
+
+// XOR with src.
+	MOVOU    0(SRC_PTR), TX
+	PXOR     TX, B0
+	MOVOU    B0, 0(DST)
+	MOVOU    16(SRC_PTR), TX
+	PXOR     TX, B1
+	MOVOU    B1, 16(DST)
+	MOVOU    32(SRC_PTR), TX
+	PXOR     TX, B2
+	MOVOU    B2, 32(DST)
+	MOVOU    48(SRC_PTR), TX
+	PXOR     TX, B3
+	MOVOU    B3, 48(DST)
+	ADDQ     $64, SRC_PTR
+	SUBQ     $64, SRC_LEN
+	ADDQ     $64, DST
+	JMP      enc4
+
+enc2:
+	CMPQ     SRC_LEN, $32
+	JB       enc1
+
+// Load counter values.
+	MOVQ     0(CTR), T0
+	BSWAPQ   T0
+	MOVQ     8(CTR), T1
+	BSWAPQ   T1
+
+// Increment counter and populate block registers.
+	MOVQ     T1, 0(SP)
+	MOVQ     T0, 8(SP)
+	MOVOU    0(SP), B0
+	PSHUFB   BSWAP, B0
+	ADDQ     $1, T1
+	ADCQ     $0, T0
+	MOVQ     T1, 16(SP)
+	MOVQ     T0, 24(SP)
+	MOVOU    16(SP), B1
+	PSHUFB   BSWAP, B1
+	ADDQ     $1, T1
+	ADCQ     $0, T0
+
+// Restore counter values.
+	BSWAPQ   T0
+	MOVQ     T0, 0(CTR)
+	BSWAPQ   T1
+	MOVQ     T1, 8(CTR)
+
+// Initial key add.
+	MOVOU    0(XK), KEY
+	PXOR     KEY, B0
+	PXOR     KEY, B1
+	MOVOU    16(XK), KEY
+
+// 9 rounds (all key sizes)
+	AESENC   KEY, B0
+	AESENC   KEY, B1
+	MOVOU    32(XK), KEY
+	AESENC   KEY, B0
+	AESENC   KEY, B1
+	MOVOU    48(XK), KEY
+	AESENC   KEY, B0
+	AESENC   KEY, B1
+	MOVOU    64(XK), KEY
+	AESENC   KEY, B0
+	AESENC   KEY, B1
+	MOVOU    80(XK), KEY
+	AESENC   KEY, B0
+	AESENC   KEY, B1
+	MOVOU    96(XK), KEY
+	AESENC   KEY, B0
+	AESENC   KEY, B1
+	MOVOU    112(XK), KEY
+	AESENC   KEY, B0
+	AESENC   KEY, B1
+	MOVOU    128(XK), KEY
+	AESENC   KEY, B0
+	AESENC   KEY, B1
+	MOVOU    144(XK), KEY
+	AESENC   KEY, B0
+	AESENC   KEY, B1
+	MOVOU    160(XK), KEY
+
+// 2 more rounds (196- and 256-bit)
+	CMPQ     NR, $12
+	JB       lastenc2
+	AESENC   KEY, B0
+	AESENC   KEY, B1
+	MOVOU    176(XK), KEY
+	AESENC   KEY, B0
+	AESENC   KEY, B1
+	MOVOU    192(XK), KEY
+
+// 2 more rounds (256-bit only)
+	JE       lastenc2
+	AESENC   KEY, B0
+	AESENC   KEY, B1
+	MOVOU    208(XK), KEY
+	AESENC   KEY, B0
+	AESENC   KEY, B1
+	MOVOU    224(XK), KEY
+
+lastenc2:
+	AESENCLAST KEY, B0
+	AESENCLAST KEY, B1
+
+// XOR with src.
+	MOVOU    0(SRC_PTR), TX
+	PXOR     TX, B0
+	MOVOU    B0, 0(DST)
+	MOVOU    16(SRC_PTR), TX
+	PXOR     TX, B1
+	MOVOU    B1, 16(DST)
+	ADDQ     $32, SRC_PTR
+	SUBQ     $32, SRC_LEN
+	ADDQ     $32, DST
+	JMP      enc2
+
+enc1:
+	CMPQ     SRC_LEN, $16
+	JB       enc0
+
+// Load counter values.
+	MOVQ     0(CTR), T0
+	BSWAPQ   T0
+	MOVQ     8(CTR), T1
+	BSWAPQ   T1
+
+// Increment counter and populate block registers.
+	MOVQ     T1, 0(SP)
+	MOVQ     T0, 8(SP)
+	MOVOU    0(SP), B0
+	PSHUFB   BSWAP, B0
+	ADDQ     $1, T1
+	ADCQ     $0, T0
+
+// Restore counter values.
+	BSWAPQ   T0
+	MOVQ     T0, 0(CTR)
+	BSWAPQ   T1
+	MOVQ     T1, 8(CTR)
+
+// Initial key add.
+	MOVOU    0(XK), KEY
+	PXOR     KEY, B0
+	MOVOU    16(XK), KEY
+
+// 9 rounds (all key sizes)
+	AESENC   KEY, B0
+	MOVOU    32(XK), KEY
+	AESENC   KEY, B0
+	MOVOU    48(XK), KEY
+	AESENC   KEY, B0
+	MOVOU    64(XK), KEY
+	AESENC   KEY, B0
+	MOVOU    80(XK), KEY
+	AESENC   KEY, B0
+	MOVOU    96(XK), KEY
+	AESENC   KEY, B0
+	MOVOU    112(XK), KEY
+	AESENC   KEY, B0
+	MOVOU    128(XK), KEY
+	AESENC   KEY, B0
+	MOVOU    144(XK), KEY
+	AESENC   KEY, B0
+	MOVOU    160(XK), KEY
+
+// 2 more rounds (196- and 256-bit)
+	CMPQ     NR, $12
+	JB       lastenc1
+	AESENC   KEY, B0
+	MOVOU    176(XK), KEY
+	AESENC   KEY, B0
+	MOVOU    192(XK), KEY
+
+// 2 more rounds (256-bit only)
+	JE       lastenc1
+	AESENC   KEY, B0
+	MOVOU    208(XK), KEY
+	AESENC   KEY, B0
+	MOVOU    224(XK), KEY
+
+lastenc1:
+	AESENCLAST KEY, B0
+
+// XOR with src.
+	MOVOU    0(SRC_PTR), TX
+	PXOR     TX, B0
+	MOVOU    B0, 0(DST)
+	ADDQ     $16, SRC_PTR
+	SUBQ     $16, SRC_LEN
+	ADDQ     $16, DST
+	JMP      enc1
+
+// Less than a full block remains.
+
+enc0:
+	CMPQ     SRC_LEN, $0
+	JE       done
+
+// Load counter values.
+	MOVQ     0(CTR), T0
+	BSWAPQ   T0
+	MOVQ     8(CTR), T1
+	BSWAPQ   T1
+
+// Increment counter and populate block registers.
+	MOVQ     T1, 0(SP)
+	MOVQ     T0, 8(SP)
+	MOVOU    0(SP), B0
+	PSHUFB   BSWAP, B0
+	ADDQ     $1, T1
+	ADCQ     $0, T0
+
+// Restore counter values.
+	BSWAPQ   T0
+	MOVQ     T0, 0(CTR)
+	BSWAPQ   T1
+	MOVQ     T1, 8(CTR)
+
+// Initial key add.
+	MOVOU    0(XK), KEY
+	PXOR     KEY, B0
+	MOVOU    16(XK), KEY
+
+// 9 rounds (all key sizes)
+	AESENC   KEY, B0
+	MOVOU    32(XK), KEY
+	AESENC   KEY, B0
+	MOVOU    48(XK), KEY
+	AESENC   KEY, B0
+	MOVOU    64(XK), KEY
+	AESENC   KEY, B0
+	MOVOU    80(XK), KEY
+	AESENC   KEY, B0
+	MOVOU    96(XK), KEY
+	AESENC   KEY, B0
+	MOVOU    112(XK), KEY
+	AESENC   KEY, B0
+	MOVOU    128(XK), KEY
+	AESENC   KEY, B0
+	MOVOU    144(XK), KEY
+	AESENC   KEY, B0
+	MOVOU    160(XK), KEY
+
+// 2 more rounds (196- and 256-bit)
+	CMPQ     NR, $12
+	JB       lastenc0
+	AESENC   KEY, B0
+	MOVOU    176(XK), KEY
+	AESENC   KEY, B0
+	MOVOU    192(XK), KEY
+
+// 2 more rounds (256-bit only)
+	JE       lastenc0
+	AESENC   KEY, B0
+	MOVOU    208(XK), KEY
+	AESENC   KEY, B0
+	MOVOU    224(XK), KEY
+
+lastenc0:
+	AESENCLAST KEY, B0
+	SUBQ     $16, BUF_PTR
+	MOVOU    B0, (BUF_PTR)
+	MOVQ     $16, BUF_LEN
+	JMP      loop
+
+done:
+	MOVQ     BUF_LEN, ret+80(FP)
+	RET      
