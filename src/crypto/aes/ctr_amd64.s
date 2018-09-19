@@ -1,4 +1,5 @@
 #include "textflag.h"
+#include "iaca.h"
 
 DATA bswap<>+0x00(SB)/8, $0x08090a0b0c0d0e0f
 DATA bswap<>+0x08(SB)/8, $0x0001020304050607
@@ -25,6 +26,8 @@ TEXT ·xorKeyStream(SB),0,$128-88
 // Working register setup.
 #define T0 R11
 #define T1 R12
+#define C0 R13
+#define C1 R14
 #define B0 X0
 #define B1 X1
 #define B2 X2
@@ -38,13 +41,19 @@ TEXT ·xorKeyStream(SB),0,$128-88
 	MOVOU    bswap<>(SB), BSWAP
 #define TX X10
 
+// Load counter values.
+	MOVQ     0(CTR), C0
+	BSWAPQ   C0
+	MOVQ     8(CTR), C1
+	BSWAPQ   C1
+
 loop:
 	CMPQ     SRC_LEN, $0
 	JE       done
 
 xor:
 	CMPQ     BUF_LEN, $0
-	JE       enc8
+	JE       startenc8
 	MOVB     (SRC_PTR), T0
 	MOVB     (BUF_PTR), T1
 	XORL     T0, T1
@@ -56,71 +65,141 @@ xor:
 	INCQ     DST
 	JMP      loop
 
-enc8:
-	CMPQ     SRC_LEN, $128
-	JB       enc4
-
-// Load counter values.
-	MOVQ     0(CTR), T0
-	BSWAPQ   T0
-	MOVQ     8(CTR), T1
-	BSWAPQ   T1
-
-// Increment counter and populate block registers.
+// Stage counter blocks.
+	MOVQ     C0, T0
+	MOVQ     C1, T1
 	MOVQ     T1, 0(SP)
 	MOVQ     T0, 8(SP)
-	MOVOU    0(SP), B0
-	PSHUFB   BSWAP, B0
 	ADDQ     $1, T1
 	ADCQ     $0, T0
 	MOVQ     T1, 16(SP)
 	MOVQ     T0, 24(SP)
-	MOVOU    16(SP), B1
-	PSHUFB   BSWAP, B1
 	ADDQ     $1, T1
 	ADCQ     $0, T0
 	MOVQ     T1, 32(SP)
 	MOVQ     T0, 40(SP)
-	MOVOU    32(SP), B2
-	PSHUFB   BSWAP, B2
 	ADDQ     $1, T1
 	ADCQ     $0, T0
 	MOVQ     T1, 48(SP)
 	MOVQ     T0, 56(SP)
-	MOVOU    48(SP), B3
-	PSHUFB   BSWAP, B3
 	ADDQ     $1, T1
 	ADCQ     $0, T0
 	MOVQ     T1, 64(SP)
 	MOVQ     T0, 72(SP)
-	MOVOU    64(SP), B4
-	PSHUFB   BSWAP, B4
 	ADDQ     $1, T1
 	ADCQ     $0, T0
 	MOVQ     T1, 80(SP)
 	MOVQ     T0, 88(SP)
-	MOVOU    80(SP), B5
-	PSHUFB   BSWAP, B5
 	ADDQ     $1, T1
 	ADCQ     $0, T0
 	MOVQ     T1, 96(SP)
 	MOVQ     T0, 104(SP)
-	MOVOU    96(SP), B6
-	PSHUFB   BSWAP, B6
 	ADDQ     $1, T1
 	ADCQ     $0, T0
 	MOVQ     T1, 112(SP)
 	MOVQ     T0, 120(SP)
-	MOVOU    112(SP), B7
-	PSHUFB   BSWAP, B7
 	ADDQ     $1, T1
 	ADCQ     $0, T0
 
-// Restore counter values.
-	BSWAPQ   T0
-	MOVQ     T0, 0(CTR)
-	BSWAPQ   T1
-	MOVQ     T1, 8(CTR)
+startenc8:
+
+// Stage counter blocks.
+	MOVQ     C0, T0
+	MOVQ     C1, T1
+	MOVQ     T1, 0(SP)
+	MOVQ     T0, 8(SP)
+	ADDQ     $1, T1
+	ADCQ     $0, T0
+	MOVQ     T1, 16(SP)
+	MOVQ     T0, 24(SP)
+	ADDQ     $1, T1
+	ADCQ     $0, T0
+	MOVQ     T1, 32(SP)
+	MOVQ     T0, 40(SP)
+	ADDQ     $1, T1
+	ADCQ     $0, T0
+	MOVQ     T1, 48(SP)
+	MOVQ     T0, 56(SP)
+	ADDQ     $1, T1
+	ADCQ     $0, T0
+	MOVQ     T1, 64(SP)
+	MOVQ     T0, 72(SP)
+	ADDQ     $1, T1
+	ADCQ     $0, T0
+	MOVQ     T1, 80(SP)
+	MOVQ     T0, 88(SP)
+	ADDQ     $1, T1
+	ADCQ     $0, T0
+	MOVQ     T1, 96(SP)
+	MOVQ     T0, 104(SP)
+	ADDQ     $1, T1
+	ADCQ     $0, T0
+	MOVQ     T1, 112(SP)
+	MOVQ     T0, 120(SP)
+	ADDQ     $1, T1
+	ADCQ     $0, T0
+
+enc8:
+	CMPQ     SRC_LEN, $128
+	JB       startenc4
+
+// Snapshot counter values.
+	ADDQ     $8, C1
+	ADCQ     $0, C0
+
+// Load block registers.
+	MOVOU    0(SP), B0
+	MOVOU    16(SP), B1
+	MOVOU    32(SP), B2
+	MOVOU    48(SP), B3
+	MOVOU    64(SP), B4
+	MOVOU    80(SP), B5
+	MOVOU    96(SP), B6
+	MOVOU    112(SP), B7
+	PSHUFB   BSWAP, B0
+	PSHUFB   BSWAP, B1
+	PSHUFB   BSWAP, B2
+	PSHUFB   BSWAP, B3
+	PSHUFB   BSWAP, B4
+	PSHUFB   BSWAP, B5
+	PSHUFB   BSWAP, B6
+	PSHUFB   BSWAP, B7
+
+// Stage counter blocks.
+	MOVQ     C0, T0
+	MOVQ     C1, T1
+	MOVQ     T1, 0(SP)
+	MOVQ     T0, 8(SP)
+	ADDQ     $1, T1
+	ADCQ     $0, T0
+	MOVQ     T1, 16(SP)
+	MOVQ     T0, 24(SP)
+	ADDQ     $1, T1
+	ADCQ     $0, T0
+	MOVQ     T1, 32(SP)
+	MOVQ     T0, 40(SP)
+	ADDQ     $1, T1
+	ADCQ     $0, T0
+	MOVQ     T1, 48(SP)
+	MOVQ     T0, 56(SP)
+	ADDQ     $1, T1
+	ADCQ     $0, T0
+	MOVQ     T1, 64(SP)
+	MOVQ     T0, 72(SP)
+	ADDQ     $1, T1
+	ADCQ     $0, T0
+	MOVQ     T1, 80(SP)
+	MOVQ     T0, 88(SP)
+	ADDQ     $1, T1
+	ADCQ     $0, T0
+	MOVQ     T1, 96(SP)
+	MOVQ     T0, 104(SP)
+	ADDQ     $1, T1
+	ADCQ     $0, T0
+	MOVQ     T1, 112(SP)
+	MOVQ     T0, 120(SP)
+	ADDQ     $1, T1
+	ADCQ     $0, T0
 
 // Initial key add.
 	MOVOU    0(XK), KEY
@@ -300,47 +379,65 @@ lastenc8:
 	ADDQ     $128, DST
 	JMP      enc8
 
-enc4:
-	CMPQ     SRC_LEN, $64
-	JB       enc2
+startenc4:
 
-// Load counter values.
-	MOVQ     0(CTR), T0
-	BSWAPQ   T0
-	MOVQ     8(CTR), T1
-	BSWAPQ   T1
-
-// Increment counter and populate block registers.
+// Stage counter blocks.
+	MOVQ     C0, T0
+	MOVQ     C1, T1
 	MOVQ     T1, 0(SP)
 	MOVQ     T0, 8(SP)
-	MOVOU    0(SP), B0
-	PSHUFB   BSWAP, B0
 	ADDQ     $1, T1
 	ADCQ     $0, T0
 	MOVQ     T1, 16(SP)
 	MOVQ     T0, 24(SP)
-	MOVOU    16(SP), B1
-	PSHUFB   BSWAP, B1
 	ADDQ     $1, T1
 	ADCQ     $0, T0
 	MOVQ     T1, 32(SP)
 	MOVQ     T0, 40(SP)
-	MOVOU    32(SP), B2
-	PSHUFB   BSWAP, B2
 	ADDQ     $1, T1
 	ADCQ     $0, T0
 	MOVQ     T1, 48(SP)
 	MOVQ     T0, 56(SP)
-	MOVOU    48(SP), B3
-	PSHUFB   BSWAP, B3
 	ADDQ     $1, T1
 	ADCQ     $0, T0
 
-// Restore counter values.
-	BSWAPQ   T0
-	MOVQ     T0, 0(CTR)
-	BSWAPQ   T1
-	MOVQ     T1, 8(CTR)
+enc4:
+	CMPQ     SRC_LEN, $64
+	JB       startenc2
+
+// Snapshot counter values.
+	ADDQ     $4, C1
+	ADCQ     $0, C0
+
+// Load block registers.
+	MOVOU    0(SP), B0
+	MOVOU    16(SP), B1
+	MOVOU    32(SP), B2
+	MOVOU    48(SP), B3
+	PSHUFB   BSWAP, B0
+	PSHUFB   BSWAP, B1
+	PSHUFB   BSWAP, B2
+	PSHUFB   BSWAP, B3
+
+// Stage counter blocks.
+	MOVQ     C0, T0
+	MOVQ     C1, T1
+	MOVQ     T1, 0(SP)
+	MOVQ     T0, 8(SP)
+	ADDQ     $1, T1
+	ADCQ     $0, T0
+	MOVQ     T1, 16(SP)
+	MOVQ     T0, 24(SP)
+	ADDQ     $1, T1
+	ADCQ     $0, T0
+	MOVQ     T1, 32(SP)
+	MOVQ     T0, 40(SP)
+	ADDQ     $1, T1
+	ADCQ     $0, T0
+	MOVQ     T1, 48(SP)
+	MOVQ     T0, 56(SP)
+	ADDQ     $1, T1
+	ADCQ     $0, T0
 
 // Initial key add.
 	MOVOU    0(XK), KEY
@@ -448,35 +545,45 @@ lastenc4:
 	ADDQ     $64, DST
 	JMP      enc4
 
-enc2:
-	CMPQ     SRC_LEN, $32
-	JB       enc1
+startenc2:
 
-// Load counter values.
-	MOVQ     0(CTR), T0
-	BSWAPQ   T0
-	MOVQ     8(CTR), T1
-	BSWAPQ   T1
-
-// Increment counter and populate block registers.
+// Stage counter blocks.
+	MOVQ     C0, T0
+	MOVQ     C1, T1
 	MOVQ     T1, 0(SP)
 	MOVQ     T0, 8(SP)
-	MOVOU    0(SP), B0
-	PSHUFB   BSWAP, B0
 	ADDQ     $1, T1
 	ADCQ     $0, T0
 	MOVQ     T1, 16(SP)
 	MOVQ     T0, 24(SP)
-	MOVOU    16(SP), B1
-	PSHUFB   BSWAP, B1
 	ADDQ     $1, T1
 	ADCQ     $0, T0
 
-// Restore counter values.
-	BSWAPQ   T0
-	MOVQ     T0, 0(CTR)
-	BSWAPQ   T1
-	MOVQ     T1, 8(CTR)
+enc2:
+	CMPQ     SRC_LEN, $32
+	JB       startenc1
+
+// Snapshot counter values.
+	ADDQ     $2, C1
+	ADCQ     $0, C0
+
+// Load block registers.
+	MOVOU    0(SP), B0
+	MOVOU    16(SP), B1
+	PSHUFB   BSWAP, B0
+	PSHUFB   BSWAP, B1
+
+// Stage counter blocks.
+	MOVQ     C0, T0
+	MOVQ     C1, T1
+	MOVQ     T1, 0(SP)
+	MOVQ     T0, 8(SP)
+	ADDQ     $1, T1
+	ADCQ     $0, T0
+	MOVQ     T1, 16(SP)
+	MOVQ     T0, 24(SP)
+	ADDQ     $1, T1
+	ADCQ     $0, T0
 
 // Initial key add.
 	MOVOU    0(XK), KEY
@@ -548,29 +655,35 @@ lastenc2:
 	ADDQ     $32, DST
 	JMP      enc2
 
-enc1:
-	CMPQ     SRC_LEN, $16
-	JB       enc0
+startenc1:
 
-// Load counter values.
-	MOVQ     0(CTR), T0
-	BSWAPQ   T0
-	MOVQ     8(CTR), T1
-	BSWAPQ   T1
-
-// Increment counter and populate block registers.
+// Stage counter blocks.
+	MOVQ     C0, T0
+	MOVQ     C1, T1
 	MOVQ     T1, 0(SP)
 	MOVQ     T0, 8(SP)
-	MOVOU    0(SP), B0
-	PSHUFB   BSWAP, B0
 	ADDQ     $1, T1
 	ADCQ     $0, T0
 
-// Restore counter values.
-	BSWAPQ   T0
-	MOVQ     T0, 0(CTR)
-	BSWAPQ   T1
-	MOVQ     T1, 8(CTR)
+enc1:
+	CMPQ     SRC_LEN, $16
+	JB       startenc0
+
+// Snapshot counter values.
+	ADDQ     $1, C1
+	ADCQ     $0, C0
+
+// Load block registers.
+	MOVOU    0(SP), B0
+	PSHUFB   BSWAP, B0
+
+// Stage counter blocks.
+	MOVQ     C0, T0
+	MOVQ     C1, T1
+	MOVQ     T1, 0(SP)
+	MOVQ     T0, 8(SP)
+	ADDQ     $1, T1
+	ADCQ     $0, T0
 
 // Initial key add.
 	MOVOU    0(XK), KEY
@@ -626,29 +739,25 @@ lastenc1:
 
 // Less than a full block remains.
 
-enc0:
+startenc0:
 	CMPQ     SRC_LEN, $0
 	JE       done
 
-// Load counter values.
-	MOVQ     0(CTR), T0
-	BSWAPQ   T0
-	MOVQ     8(CTR), T1
-	BSWAPQ   T1
+// Snapshot counter values.
+	ADDQ     $1, C1
+	ADCQ     $0, C0
 
-// Increment counter and populate block registers.
-	MOVQ     T1, 0(SP)
-	MOVQ     T0, 8(SP)
+// Load block registers.
 	MOVOU    0(SP), B0
 	PSHUFB   BSWAP, B0
+
+// Stage counter blocks.
+	MOVQ     C0, T0
+	MOVQ     C1, T1
+	MOVQ     T1, 0(SP)
+	MOVQ     T0, 8(SP)
 	ADDQ     $1, T1
 	ADCQ     $0, T0
-
-// Restore counter values.
-	BSWAPQ   T0
-	MOVQ     T0, 0(CTR)
-	BSWAPQ   T1
-	MOVQ     T1, 8(CTR)
 
 // Initial key add.
 	MOVOU    0(XK), KEY
@@ -698,5 +807,11 @@ lastenc0:
 	JMP      loop
 
 done:
+
+// Restore counter values.
+	BSWAPQ   C0
+	MOVQ     C0, 0(CTR)
+	BSWAPQ   C1
+	MOVQ     C1, 8(CTR)
 	MOVQ     BUF_LEN, ret+80(FP)
 	RET      

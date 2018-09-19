@@ -21,6 +21,9 @@ import (
 // 7. handling of last sub-block is inelegant
 // 8. distinguish between tmp general purpose and tmp X register (T0, T1, TX)
 
+// things to try:
+// 1. prepare counters in advance
+
 type AES struct {
 	w io.Writer
 	n int
@@ -49,8 +52,11 @@ func (a *AES) Generate() error {
 	a.arg("src_len", 64, "R10")
 
 	a.section("Working register setup.")
-	t0 := a.alloc("T0", "R11")
-	t1 := a.alloc("T1", "R12")
+	a.alloc("T0", "R11")
+	a.alloc("T1", "R12")
+
+	a.alloc("C0", "R13")
+	a.alloc("C1", "R14")
 
 	for i := 0; i < a.n; i++ {
 		a.alloc("B"+strconv.Itoa(i), "X"+strconv.Itoa(i))
@@ -63,6 +69,12 @@ func (a *AES) Generate() error {
 
 	a.alloc("TX", "X"+strconv.Itoa(a.n+2))
 
+	a.section("Load counter values.")
+	for i := 0; i < 2; i++ {
+		a.inst("MOVQ", "%d(CTR), C%d", 8*i, i)
+		a.inst("BSWAPQ", "C%d", i)
+	}
+
 	// for len(src) > 0"
 	a.label("loop")
 	a.inst("CMPQ", "SRC_LEN, $0")
@@ -71,12 +83,12 @@ func (a *AES) Generate() error {
 	// if n > 0
 	a.label("xor")
 	a.inst("CMPQ", "BUF_LEN, $0")
-	a.inst("JE", "enc8")
+	a.inst("JE", "startenc8")
 
-	a.inst("MOVB", "(SRC_PTR), %s", t0)
-	a.inst("MOVB", "(BUF_PTR), %s", t1)
-	a.inst("XORL", "%s, %s", t0, t1)
-	a.inst("MOVB", "%s, (DST)", t1)
+	a.inst("MOVB", "(SRC_PTR), T0")
+	a.inst("MOVB", "(BUF_PTR), T1")
+	a.inst("XORL", "T0, T1")
+	a.inst("MOVB", "T1, (DST)")
 	a.inst("INCQ", "SRC_PTR")
 	a.inst("DECQ", "SRC_LEN")
 	a.inst("INCQ", "BUF_PTR")
@@ -85,18 +97,21 @@ func (a *AES) Generate() error {
 	a.inst("JMP", "loop")
 
 	// encrypt successively fewer blocks at a time
+	a.StageCounterBlocks(a.n)
 	for n := a.n; n > 0; n /= 2 {
 		name := "enc" + strconv.Itoa(n)
+		a.label("start" + name)
+		a.StageCounterBlocks(n)
 		a.label(name)
 		a.inst("CMPQ", "SRC_LEN, $%d", n*16)
-		a.inst("JB", "enc"+strconv.Itoa(n/2))
+		a.inst("JB", "startenc"+strconv.Itoa(n/2))
 		a.Encrypt(n, name)
 		a.Xor(n)
 		a.inst("JMP", name)
 	}
 
 	a.section("Less than a full block remains.")
-	a.label("enc0")
+	a.label("startenc0")
 	a.inst("CMPQ", "SRC_LEN, $0")
 	a.inst("JE", "done")
 
@@ -109,35 +124,51 @@ func (a *AES) Generate() error {
 
 	// Exit
 	a.label("done")
+
+	a.section("Restore counter values.")
+	for i := 0; i < 2; i++ {
+		a.inst("BSWAPQ", "C%d", i)
+		a.inst("MOVQ", "C%d, %d(CTR)", i, 8*i)
+	}
+
 	a.inst("MOVQ", "BUF_LEN, ret+80(FP)")
 	a.inst("RET", "")
 
 	return nil
 }
 
-// Encrypt encrypts n counter blocks.
-func (a *AES) Encrypt(n int, name string) {
-	a.section("Load counter values.")
-	for i := 0; i < 2; i++ {
-		a.inst("MOVQ", "%d(CTR), T%d", 8*i, i)
-		a.inst("BSWAPQ", "T%d", i)
-	}
-
-	a.section("Increment counter and populate block registers.")
+// StageCounterBlocks loads the next set of counter blocks into the stack.
+func (a *AES) StageCounterBlocks(n int) {
+	a.section("Stage counter blocks.")
+	a.inst("MOVQ", "C0, T0")
+	a.inst("MOVQ", "C1, T1")
 	for i := 0; i < n; i++ {
 		a.inst("MOVQ", "T1, %d(SP)", 16*i)
 		a.inst("MOVQ", "T0, %d(SP)", 16*i+8)
-		a.inst("MOVOU", "%d(SP), B%d", 16*i, i)
-		a.inst("PSHUFB", "BSWAP, B%d", i)
 		a.inst("ADDQ", "$1, T1")
 		a.inst("ADCQ", "$0, T0")
 	}
+}
 
-	a.section("Restore counter values.")
-	for i := 0; i < 2; i++ {
-		a.inst("BSWAPQ", "T%d", i)
-		a.inst("MOVQ", "T%d, %d(CTR)", i, 8*i)
+// Encrypt encrypts n counter blocks.
+func (a *AES) Encrypt(n int, name string) {
+	if n == 8 {
+		//a.inst("IACA_START", "")
 	}
+
+	a.section("Snapshot counter values.")
+	a.inst("ADDQ", "$%d, C1", n)
+	a.inst("ADCQ", "$0, C0")
+
+	a.section("Load block registers.")
+	for i := 0; i < n; i++ {
+		a.inst("MOVOU", "%d(SP), B%d", 16*i, i)
+	}
+	for i := 0; i < n; i++ {
+		a.inst("PSHUFB", "BSWAP, B%d", i)
+	}
+
+	a.StageCounterBlocks(n)
 
 	a.section("Initial key add.")
 	a.inst("MOVOU", "0(XK), KEY")
@@ -180,6 +211,10 @@ func (a *AES) Encrypt(n int, name string) {
 	for i := 0; i < n; i++ {
 		a.inst("AESENCLAST", "KEY, B%d", i)
 	}
+
+	if n == 8 {
+		//a.inst("IACA_END", "")
+	}
 }
 
 // Xor xors n blocks into src and writes to dst.
@@ -198,6 +233,7 @@ func (a *AES) Xor(n int) {
 
 func (a *AES) header() {
 	fmt.Fprint(a.w, "#include \"textflag.h\"\n")
+	fmt.Fprint(a.w, "#include \"iaca.h\"\n")
 }
 
 func (a *AES) data64(name string, x []uint64) {
