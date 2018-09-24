@@ -16,6 +16,8 @@ var _ ctrAble = (*aesCipherAsm)(nil)
 //go:noescape
 func xorKeyStream(nr int, xk *uint32, buf []byte, ctr, dst *byte, src []byte) int
 
+//go:generate go run make_ctr_amd64_asm.go
+
 type aesctr struct {
 	block   *aesCipherAsm   // block cipher
 	nr      int             // number of rounds

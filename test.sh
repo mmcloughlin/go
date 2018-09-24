@@ -1,11 +1,21 @@
 #!/bin/bash -ex
 
-./bin/go run src/crypto/aes/gen_amd64.go > src/crypto/aes/ctr_amd64.s
+./bin/go generate crypto/aes
+./bin/go test -c crypto/aes
+
 
 # test
-./bin/go test -v crypto/aes
-./bin/go test -v -bench CTR crypto/cipher
+GOCACHE=off ./bin/go test crypto/aes crypto/cipher
+
+# bench
+benchtime=10s
+results=results/$(uuidgen)
+mkdir -p ${results}
+unbuffer ./bin/go test -run NONE -benchtime ${benchtime} -bench 'CTR' crypto/cipher | tee ${results}/results.txt
+cp src/crypto/aes/*ctr_amd64* ${results}
+exit
 
 # profile
-./bin/go test -run NONE -bench CTR -cpuprofile prof.out crypto/cipher
-./bin/go tool pprof -list=xor prof.out | less
+prof=$(mktemp)
+./bin/go test -run NONE -bench CTR -cpuprofile ${prof} crypto/cipher
+./bin/go tool pprof -list=xor ${prof} | tee xor.list | less
